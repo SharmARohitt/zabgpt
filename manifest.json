@@ -1,0 +1,35 @@
+{
+    "manifest_version": 2.0,
+    "id": "zabgpt",
+    "name": "AI Integration",
+    "version": "1.0.0",
+    "namespace": "ZabGPT",
+    "description": "ZabGPT DevOps copilot for incident analysis in Zabbix.",
+    "author": "Rohit Sharma",
+    "url": "monzphere.com",
+    "actions": {
+        "zabgpt.settings": {
+            "class": "ZabGPTSettings",
+            "view": "zabgpt.settings"
+        },
+        "zabgpt.settings.save": {
+            "class": "ZabGPTSettingsSave"
+        },
+        "zabgpt.query": {
+            "class": "ZabGPTQuery"
+        },
+        "zabgpt.providers": {
+            "class": "ZabGPTProviders"
+        }
+    },
+    "assets": {
+        "css": [
+            "zabgpt.css"
+        ],
+        "js": [
+            "zabgpt-core.js",
+            "zabgpt-context.js",
+            "zabgpt-ui.js"
+        ]
+    }
+}

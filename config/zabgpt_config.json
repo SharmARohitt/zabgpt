@@ -1,0 +1,36 @@
+{
+    "providers": {
+        "openai": {
+            "enabled": false,
+            "endpoint": "https://api.openai.com/v1/chat/completions",
+            "api_key": "",
+            "model": "gpt-4o-mini",
+            "temperature": 0.2,
+            "max_tokens": 1400
+        },
+        "gemini": {
+            "enabled": true,
+            "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            "api_key": "",
+            "model": "gemini-flash-latest",
+            "temperature": 0.2,
+            "max_tokens": 1400
+        },
+        "custom": {
+            "enabled": false,
+            "endpoint": "",
+            "api_key": "",
+            "model": "",
+            "temperature": 0.2,
+            "max_tokens": 1400,
+            "headers": "{}"
+        }
+    },
+    "default_provider": "gemini",
+    "ui": {
+        "enable_floating_button": true,
+        "enable_memory_mode": true,
+        "auto_context": true
+    },
+    "updated_at": ""
+}
