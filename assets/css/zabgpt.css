@@ -307,6 +307,78 @@
     white-space: nowrap;
 }
 
+.zabgpt-context-grouped {
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0d5cc6;
+    background: #e7f0fb;
+    border: 1px solid #c8dbf3;
+    white-space: nowrap;
+}
+
+.zabgpt-ops-voice-dock {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.zabgpt-ops-voice-btn {
+    border: 1px solid #c7d4e7;
+    border-radius: 999px;
+    cursor: pointer;
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+}
+
+.zabgpt-ops-voice-btn.is-talk {
+    background: #edf4ff;
+    color: #0d4da8;
+    border-color: #b9cdee;
+}
+
+.zabgpt-ops-voice-btn.is-status {
+    background: #f0f7f1;
+    color: #0f6b40;
+    border-color: #bedbc7;
+}
+
+.zabgpt-ops-voice-btn.is-toggle {
+    background: #eef1f5;
+    color: #334155;
+    border-color: #cfd8e6;
+}
+
+.zabgpt-ops-voice-btn.is-toggle.is-muted {
+    background: #fff1f1;
+    color: #8a2f2f;
+    border-color: #e5c2c2;
+}
+
+.zabgpt-ops-voice-btn:hover {
+    background: #dde9fb;
+    border-color: #9eb8e2;
+}
+
+.zabgpt-ops-voice-btn.is-status:hover {
+    background: #e3f2e6;
+    border-color: #9ec9ab;
+}
+
+.zabgpt-ops-voice-hint {
+    color: #5c6f8f;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .zabgpt-suggestions {
     display: flex;
     gap: 8px;
@@ -477,8 +549,37 @@
     font-size: 13px;
     color: #334155;
     line-height: 1.6;
-    white-space: pre-wrap;
+    white-space: normal;
     word-break: break-word;
+}
+
+.zabgpt-clean-paragraph {
+    margin: 0 0 8px;
+}
+
+.zabgpt-clean-paragraph:last-child {
+    margin-bottom: 0;
+}
+
+.zabgpt-clean-list {
+    margin: 0 0 8px 18px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.zabgpt-clean-list li {
+    line-height: 1.55;
+}
+
+.zabgpt-section-body pre {
+    margin: 8px 0;
+    background: #f3f7fc;
+    border: 1px solid #d4dfef;
+    border-radius: 8px;
+    padding: 8px 10px;
+    overflow-x: auto;
 }
 
 .zabgpt-section-body code {
@@ -530,6 +631,115 @@
 .zabgpt-raw-answer {
     white-space: pre-wrap;
     line-height: 1.5;
+}
+
+.zabgpt-voice-controls {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed #d4deed;
+    display: grid;
+    grid-template-columns: auto auto auto auto 1fr;
+    align-items: center;
+    gap: 10px;
+}
+
+.zabgpt-voice-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: #334155;
+    user-select: none;
+}
+
+.zabgpt-voice-toggle input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+.zabgpt-voice-play-btn {
+    border: 1px solid #c7d4e7;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0d5cc6;
+    background: #f0f4f8;
+}
+
+.zabgpt-voice-stop-btn {
+    border: 1px solid #d7c7c7;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #9f2f2f;
+    background: #fbf1f1;
+}
+
+.zabgpt-voice-language {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: 1px solid #d3dded;
+    background: #f8fbff;
+}
+
+.zabgpt-voice-language-label {
+    font-size: 11px;
+    color: #4a607e;
+    font-weight: 700;
+}
+
+.zabgpt-voice-language-select {
+    border: 1px solid #bfcee4;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 12px;
+    padding: 3px 6px;
+    min-width: 86px;
+}
+
+.zabgpt-voice-language-select:focus {
+    outline: none;
+    border-color: #0d5cc6;
+    box-shadow: 0 0 0 2px rgba(13, 92, 198, 0.15);
+}
+
+.zabgpt-voice-play-btn:hover {
+    background: #d9e4f5;
+    color: #0a3fa6;
+}
+
+.zabgpt-voice-stop-btn:hover {
+    background: #f3dddd;
+}
+
+.zabgpt-voice-play-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.zabgpt-voice-status {
+    font-size: 11px;
+    color: #5b6a84;
+    min-width: 84px;
+    text-align: right;
+}
+
+.zabgpt-message[data-voice-state="playing"] .zabgpt-voice-status {
+    color: #0d5cc6;
+    font-weight: 700;
+}
+
+.zabgpt-message[data-voice-state="error"] .zabgpt-voice-status {
+    color: #b91c1c;
 }
 
 .zabgpt-root[theme="dark-theme"] .zabgpt-panel {
@@ -595,6 +805,79 @@
     border-color: #2e3c52;
 }
 
+.zabgpt-root[theme="dark-theme"] .zabgpt-section-body pre {
+    background: #0f1726;
+    border-color: #30415a;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-ops-voice-btn.is-talk {
+    background: #1b2940;
+    border-color: #35527e;
+    color: #cfe1ff;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-ops-voice-btn.is-status {
+    background: #1b2d2a;
+    border-color: #37695f;
+    color: #c9f2e5;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-ops-voice-btn.is-toggle {
+    background: #252f3f;
+    border-color: #42516e;
+    color: #dae4f3;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-ops-voice-btn.is-toggle.is-muted {
+    background: #3a2525;
+    border-color: #6b4949;
+    color: #ffcece;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-ops-voice-hint {
+    color: #b7c7de;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-controls {
+    border-top-color: #2f3c52;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-toggle,
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-status {
+    color: #c3cfdf;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-play-btn {
+    background: #192235;
+    border-color: #30415a;
+    color: #dbe5f3;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-stop-btn {
+    background: #351b1b;
+    border-color: #634040;
+    color: #ffc8c8;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-language {
+    border-color: #30415a;
+    background: #172033;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-language-label {
+    color: #c3cfdf;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-voice-language-select {
+    background: #101a2b;
+    border-color: #30415a;
+    color: #dbe5f3;
+}
+
+.zabgpt-root[theme="dark-theme"] .zabgpt-message[data-voice-state="playing"] .zabgpt-voice-status {
+    color: #7fb2ff;
+}
+
 @media (max-width: 768px) {
     .zabgpt-root {
         right: 10px;
@@ -618,5 +901,35 @@
 
     .zabgpt-fab-text {
         display: none;
+    }
+
+    .zabgpt-voice-controls {
+        grid-template-columns: auto auto;
+        gap: 8px;
+    }
+
+    .zabgpt-ops-voice-dock {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .zabgpt-ops-voice-btn {
+        flex: 1 1 auto;
+        text-align: center;
+    }
+
+    .zabgpt-ops-voice-hint {
+        width: 100%;
+        white-space: normal;
+    }
+
+    .zabgpt-voice-language {
+        grid-column: 1 / -1;
+        justify-content: space-between;
+    }
+
+    .zabgpt-voice-status {
+        grid-column: 1 / -1;
+        text-align: left;
     }
 }

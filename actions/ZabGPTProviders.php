@@ -39,6 +39,7 @@ class ZabGPTProviders extends CController {
                 'success' => true,
                 'providers' => $providers,
                 'default_provider' => $config['default_provider'] ?? 'gemini',
+                'proxy' => $config['proxy'] ?? [],
                 'ui' => $this->resolveUIConfig($config['ui'] ?? []),
                 'is_super_admin' => $this->getUserType() == USER_TYPE_SUPER_ADMIN
             ], JSON_UNESCAPED_UNICODE);

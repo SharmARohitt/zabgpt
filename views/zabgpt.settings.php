@@ -5,6 +5,7 @@ $config = file_exists($config_path) ? json_decode((string) file_get_contents($co
 
 $providers = $config['providers'] ?? [];
 $default_provider = $config['default_provider'] ?? 'gemini';
+$proxy = $config['proxy'] ?? [];
 $ui = array_merge([
     'enable_floating_button' => true,
     'enable_memory_mode' => true,
@@ -12,35 +13,36 @@ $ui = array_merge([
 ], $config['ui'] ?? []);
 
 $openai = $providers['openai'] ?? [];
+$anthropic = $providers['anthropic'] ?? [];
 $gemini = $providers['gemini'] ?? [];
 $custom = $providers['custom'] ?? [];
 
 $openai_enabled = !empty($openai['enabled']);
+$anthropic_enabled = !empty($anthropic['enabled']);
 $gemini_enabled = !empty($gemini['enabled']);
 $custom_enabled = !empty($custom['enabled']);
+
 $openai_api_key = !empty($openai['api_key']) ? '********' : '';
+$anthropic_api_key = !empty($anthropic['api_key']) ? '********' : '';
 $gemini_api_key = !empty($gemini['api_key']) ? '********' : '';
 $custom_api_key = !empty($custom['api_key']) ? '********' : '';
-$width_standard = '520px';
-$width_small = '120px';
+
+$proxy_enabled = !empty($proxy['enabled']);
+$proxy_host = (string) ($proxy['host'] ?? '');
+$proxy_port = (int) ($proxy['port'] ?? 3128);
+$proxy_username = (string) ($proxy['username'] ?? '');
+$proxy_password = !empty($proxy['password']) ? '********' : '';
+$proxy_type = (string) ($proxy['type'] ?? 'http');
+$proxy_verify_ssl = !empty($proxy['verify_ssl']);
+
+$width_standard = defined('ZBX_TEXTAREA_STANDARD_WIDTH') ? ZBX_TEXTAREA_STANDARD_WIDTH : '520px';
+$width_small = defined('ZBX_TEXTAREA_SMALL_WIDTH') ? ZBX_TEXTAREA_SMALL_WIDTH : '120px';
 
 $page = (new CHtmlPage())
-    ->setTitle(_("ZabGPT"))
+    ->setTitle(_('ZabGPT'))
     ->addItem((new CTag('link', false))
         ->setAttribute('rel', 'stylesheet')
         ->setAttribute('href', 'modules/zabgpt/assets/css/zabgpt.css')
-    )
-    ->addItem((new CTag('script', false))
-        ->setAttribute('type', 'text/javascript')
-        ->setAttribute('src', 'modules/zabgpt/assets/js/zabgpt-context.js')
-    )
-    ->addItem((new CTag('script', false))
-        ->setAttribute('type', 'text/javascript')
-        ->setAttribute('src', 'modules/zabgpt/assets/js/zabgpt-core.js')
-    )
-    ->addItem((new CTag('script', false))
-        ->setAttribute('type', 'text/javascript')
-        ->setAttribute('src', 'modules/zabgpt/assets/js/zabgpt-ui.js')
     );
 
 $form = (new CForm('post', '?action=zabgpt.settings.save'))
@@ -54,6 +56,7 @@ $general_grid = (new CFormGrid())
                 ->setValue($default_provider)
                 ->addOptions([
                     new CSelectOption('openai', 'OpenAI'),
+                    new CSelectOption('anthropic', 'Anthropic'),
                     new CSelectOption('gemini', 'Gemini'),
                     new CSelectOption('custom', 'Custom')
                 ])
@@ -75,6 +78,65 @@ $general_grid = (new CFormGrid())
     ->addItem([
         new CLabel(_('Config file'), 'zabgpt-config-path'),
         new CFormField((new CSpan($config_path))->addClass('zabgpt-note')->setAttribute('id', 'zabgpt-config-path'))
+    ]);
+
+$proxy_grid = (new CFormGrid())
+    ->addItem([
+        new CLabel(_('Enable proxy'), 'proxy_enabled'),
+        new CFormField((new CCheckBox('proxy_enabled'))->setLabel(_('Enabled'))->setChecked($proxy_enabled))
+    ])
+    ->addItem([
+        new CLabel(_('Proxy host'), 'proxy_host'),
+        new CFormField(
+            (new CTextBox('proxy_host', $proxy_host))
+                ->setWidth($width_standard)
+                ->setAttribute('placeholder', 'proxy.example.com or 192.168.1.1')
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Proxy port'), 'proxy_port'),
+        new CFormField(
+            (new CTextBox('proxy_port', (string) $proxy_port))
+                ->setWidth($width_small)
+                ->setAttribute('placeholder', '3128')
+                ->setAttribute('type', 'number')
+                ->setAttribute('min', '1')
+                ->setAttribute('max', '65535')
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Proxy type'), 'proxy_type'),
+        new CFormField(
+            (new CSelect('proxy_type'))
+                ->setValue($proxy_type)
+                ->addOptions([
+                    new CSelectOption('http', 'HTTP/HTTPS'),
+                    new CSelectOption('socks4', 'SOCKS4'),
+                    new CSelectOption('socks5', 'SOCKS5')
+                ])
+                ->setWidth($width_standard)
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Username (Optional)'), 'proxy_username'),
+        new CFormField(
+            (new CTextBox('proxy_username', $proxy_username))
+                ->setWidth($width_standard)
+                ->setAttribute('autocomplete', 'off')
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Password (Optional)'), 'proxy_password'),
+        new CFormField(
+            (new CTextBox('proxy_password', $proxy_password))
+                ->setWidth($width_standard)
+                ->setAttribute('type', 'password')
+                ->setAttribute('autocomplete', 'off')
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Verify SSL certificate'), 'proxy_verify_ssl'),
+        new CFormField((new CCheckBox('proxy_verify_ssl'))->setLabel(_('Verify SSL'))->setChecked($proxy_verify_ssl))
     ]);
 
 $openai_grid = (new CFormGrid())
@@ -108,14 +170,57 @@ $openai_grid = (new CFormGrid())
     ->addItem([
         new CLabel(_('Temperature'), 'openai_temperature'),
         new CFormField(
-            (new CTextBox('openai_temperature', (string) ($openai['temperature'] ?? 0.2)))
+            (new CTextBox('openai_temperature', (string) ($openai['temperature'] ?? 0.7)))
                 ->setWidth($width_small)
         )
     ])
     ->addItem([
         new CLabel(_('Max tokens'), 'openai_max_tokens'),
         new CFormField(
-            (new CTextBox('openai_max_tokens', (string) ($openai['max_tokens'] ?? 1400)))
+            (new CTextBox('openai_max_tokens', (string) ($openai['max_tokens'] ?? 2048)))
+                ->setWidth($width_small)
+        )
+    ]);
+
+$anthropic_grid = (new CFormGrid())
+    ->addItem([
+        new CLabel(_('Enable provider'), 'anthropic_enabled'),
+        new CFormField((new CCheckBox('anthropic_enabled'))->setLabel(_('Enabled'))->setChecked($anthropic_enabled))
+    ])
+    ->addItem([
+        new CLabel(_('API endpoint'), 'anthropic_endpoint'),
+        new CFormField(
+            (new CTextBox('anthropic_endpoint', $anthropic['endpoint'] ?? 'https://api.anthropic.com/v1/messages'))
+                ->setWidth($width_standard)
+        )
+    ])
+    ->addItem([
+        new CLabel(_('API key'), 'anthropic_api_key'),
+        new CFormField(
+            (new CTextBox('anthropic_api_key', $anthropic_api_key))
+                ->setWidth($width_standard)
+                ->setAttribute('type', 'password')
+                ->setAttribute('autocomplete', 'off')
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Model'), 'anthropic_model'),
+        new CFormField(
+            (new CTextBox('anthropic_model', $anthropic['model'] ?? 'claude-3-haiku-20240307'))
+                ->setWidth($width_standard)
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Temperature'), 'anthropic_temperature'),
+        new CFormField(
+            (new CTextBox('anthropic_temperature', (string) ($anthropic['temperature'] ?? 0.7)))
+                ->setWidth($width_small)
+        )
+    ])
+    ->addItem([
+        new CLabel(_('Max tokens'), 'anthropic_max_tokens'),
+        new CFormField(
+            (new CTextBox('anthropic_max_tokens', (string) ($anthropic['max_tokens'] ?? 2048)))
                 ->setWidth($width_small)
         )
     ]);
@@ -151,14 +256,14 @@ $gemini_grid = (new CFormGrid())
     ->addItem([
         new CLabel(_('Temperature'), 'gemini_temperature'),
         new CFormField(
-            (new CTextBox('gemini_temperature', (string) ($gemini['temperature'] ?? 0.2)))
+            (new CTextBox('gemini_temperature', (string) ($gemini['temperature'] ?? 0.7)))
                 ->setWidth($width_small)
         )
     ])
     ->addItem([
         new CLabel(_('Max tokens'), 'gemini_max_tokens'),
         new CFormField(
-            (new CTextBox('gemini_max_tokens', (string) ($gemini['max_tokens'] ?? 1400)))
+            (new CTextBox('gemini_max_tokens', (string) ($gemini['max_tokens'] ?? 2048)))
                 ->setWidth($width_small)
         )
     ]);
@@ -194,14 +299,14 @@ $custom_grid = (new CFormGrid())
     ->addItem([
         new CLabel(_('Temperature'), 'custom_temperature'),
         new CFormField(
-            (new CTextBox('custom_temperature', (string) ($custom['temperature'] ?? 0.2)))
+            (new CTextBox('custom_temperature', (string) ($custom['temperature'] ?? 0.7)))
                 ->setWidth($width_small)
         )
     ])
     ->addItem([
         new CLabel(_('Max tokens'), 'custom_max_tokens'),
         new CFormField(
-            (new CTextBox('custom_max_tokens', (string) ($custom['max_tokens'] ?? 1400)))
+            (new CTextBox('custom_max_tokens', (string) ($custom['max_tokens'] ?? 2048)))
                 ->setWidth($width_small)
         )
     ])
@@ -214,15 +319,11 @@ $custom_grid = (new CFormGrid())
         )
     ]);
 
-$guidelines = new CDiv([
-    new CTag('h4', true, _('ZabGPT response contract')),
-    new CSpan(_('1) Summary  2) Root Cause  3) Evidence  4) Impact  5) Recommended Fix  6) Prevention Tip')
-]);
-$guidelines->addClass('zabgpt-settings-note');
-
 $tabs = (new CTabView())
-    ->addTab('general', _('General'), [$general_grid, $guidelines])
+    ->addTab('general', _('General'), $general_grid)
+    ->addTab('proxy', _('Proxy'), $proxy_grid)
     ->addTab('openai', _('OpenAI'), $openai_grid)
+    ->addTab('anthropic', _('Anthropic'), $anthropic_grid)
     ->addTab('gemini', _('Gemini'), $gemini_grid)
     ->addTab('custom', _('Custom'), $custom_grid)
     ->setSelected(0);

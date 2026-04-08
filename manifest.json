@@ -1,7 +1,7 @@
 {
     "manifest_version": 2.0,
     "id": "zabgpt",
-    "name": "AI Integration",
+    "name": "ZabGPT",
     "version": "1.0.0",
     "namespace": "ZabGPT",
     "description": "ZabGPT DevOps copilot for incident analysis in Zabbix.",
@@ -20,6 +20,12 @@
         },
         "zabgpt.providers": {
             "class": "ZabGPTProviders"
+        },
+        "voiceai.synthesize": {
+            "class": "VoiceAISynthesize"
+        },
+        "voiceai.translate": {
+            "class": "VoiceAITranslate"
         }
     },
     "assets": {
@@ -29,7 +35,8 @@
         "js": [
             "zabgpt-core.js",
             "zabgpt-context.js",
-            "zabgpt-ui.js"
+            "zabgpt-ui.js",
+            "zabgpt-voice.js"
         ]
     }
 }

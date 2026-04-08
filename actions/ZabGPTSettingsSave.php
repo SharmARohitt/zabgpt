@@ -27,27 +27,35 @@ class ZabGPTSettingsSave extends CController {
                 'enabled' => !empty($_POST['openai_enabled']),
                 'endpoint' => trim((string) ($_POST['openai_endpoint'] ?? 'https://api.openai.com/v1/chat/completions')),
                 'model' => trim((string) ($_POST['openai_model'] ?? 'gpt-4o-mini')),
-                'temperature' => $this->toFloat($_POST['openai_temperature'] ?? 0.2, 0.2),
-                'max_tokens' => $this->toInt($_POST['openai_max_tokens'] ?? 1400, 1400)
+                'temperature' => $this->toFloat($_POST['openai_temperature'] ?? 0.7, 0.7),
+                'max_tokens' => $this->toInt($_POST['openai_max_tokens'] ?? 2048, 2048)
+            ], $existing),
+            'anthropic' => $this->buildProviderConfig('anthropic', [
+                'enabled' => !empty($_POST['anthropic_enabled']),
+                'endpoint' => trim((string) ($_POST['anthropic_endpoint'] ?? 'https://api.anthropic.com/v1/messages')),
+                'model' => trim((string) ($_POST['anthropic_model'] ?? 'claude-3-haiku-20240307')),
+                'temperature' => $this->toFloat($_POST['anthropic_temperature'] ?? 0.7, 0.7),
+                'max_tokens' => $this->toInt($_POST['anthropic_max_tokens'] ?? 2048, 2048)
             ], $existing),
             'gemini' => $this->buildProviderConfig('gemini', [
                 'enabled' => !empty($_POST['gemini_enabled']),
                 'endpoint' => trim((string) ($_POST['gemini_endpoint'] ?? 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent')),
                 'model' => trim((string) ($_POST['gemini_model'] ?? 'gemini-flash-latest')),
-                'temperature' => $this->toFloat($_POST['gemini_temperature'] ?? 0.2, 0.2),
-                'max_tokens' => $this->toInt($_POST['gemini_max_tokens'] ?? 1400, 1400)
+                'temperature' => $this->toFloat($_POST['gemini_temperature'] ?? 0.7, 0.7),
+                'max_tokens' => $this->toInt($_POST['gemini_max_tokens'] ?? 2048, 2048)
             ], $existing),
             'custom' => $this->buildProviderConfig('custom', [
                 'enabled' => !empty($_POST['custom_enabled']),
                 'endpoint' => trim((string) ($_POST['custom_endpoint'] ?? '')),
                 'model' => trim((string) ($_POST['custom_model'] ?? '')),
-                'temperature' => $this->toFloat($_POST['custom_temperature'] ?? 0.2, 0.2),
-                'max_tokens' => $this->toInt($_POST['custom_max_tokens'] ?? 1400, 1400),
+                'temperature' => $this->toFloat($_POST['custom_temperature'] ?? 0.7, 0.7),
+                'max_tokens' => $this->toInt($_POST['custom_max_tokens'] ?? 2048, 2048),
                 'headers' => trim((string) ($_POST['custom_headers'] ?? '{}'))
             ], $existing)
         ];
 
         $config = [
+            'proxy' => $this->buildProxyConfig($existing),
             'providers' => $providers,
             'default_provider' => trim((string) ($_POST['default_provider'] ?? 'gemini')),
             'ui' => [
@@ -70,6 +78,24 @@ class ZabGPTSettingsSave extends CController {
         $this->setResponse(new CControllerResponseRedirect(
             (new CUrl('zabbix.php'))->setArgument('action', 'zabgpt.settings')
         ));
+    }
+
+    private function buildProxyConfig(array $existing): array {
+        $proxy_password = trim((string) ($_POST['proxy_password'] ?? ''));
+
+        if ($proxy_password === '' || $proxy_password === '********') {
+            $proxy_password = (string) ($existing['proxy']['password'] ?? '');
+        }
+
+        return [
+            'enabled' => !empty($_POST['proxy_enabled']),
+            'host' => trim((string) ($_POST['proxy_host'] ?? '')),
+            'port' => $this->toInt($_POST['proxy_port'] ?? 3128, 3128),
+            'username' => trim((string) ($_POST['proxy_username'] ?? '')),
+            'password' => $proxy_password,
+            'type' => strtolower(trim((string) ($_POST['proxy_type'] ?? 'http'))),
+            'verify_ssl' => !empty($_POST['proxy_verify_ssl'])
+        ];
     }
 
     private function buildProviderConfig(string $provider, array $input, array $existing): array {

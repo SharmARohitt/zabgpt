@@ -71,26 +71,95 @@ window.ZabGPTContext = (function() {
         return first || null;
     }
 
+    function getProblemRows() {
+        const table = document.querySelector('table.list-table');
+        if (!table) {
+            return [];
+        }
+
+        return Array.from(table.querySelectorAll('tbody tr'));
+    }
+
+    function isTimeLikeText(value) {
+        const text = String(value || '').trim();
+        return /^\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(text);
+    }
+
+    function extractTriggerFromRow(row) {
+        const triggerLink = row.querySelector('a[href*="triggerid"], a[href*="eventid"]');
+        const strongTag = row.querySelector('td strong');
+        const fallbackCell = row.querySelector('td:nth-child(4), td:nth-child(5)');
+
+        let trigger = textOrEmpty(triggerLink) || textOrEmpty(strongTag) || textOrEmpty(fallbackCell) || 'N/A';
+        if (isTimeLikeText(trigger)) {
+            trigger = 'N/A';
+        }
+
+        return trigger;
+    }
+
+    function buildAlertGroups(rows, focusTrigger) {
+        const groupedMap = {};
+
+        rows.forEach((row) => {
+            const trigger = extractTriggerFromRow(row) || 'N/A';
+            const key = trigger.toLowerCase();
+            const host = textOrEmpty(row.querySelector('a[href*="hostid"]')) || 'N/A';
+            const severity = detectSeverityFromRow(row) || 'N/A';
+
+            if (!groupedMap[key]) {
+                groupedMap[key] = {
+                    trigger: trigger,
+                    count: 0,
+                    hosts: {},
+                    severities: {}
+                };
+            }
+
+            groupedMap[key].count += 1;
+            groupedMap[key].hosts[host] = true;
+            groupedMap[key].severities[severity] = (groupedMap[key].severities[severity] || 0) + 1;
+        });
+
+        const groups = Object.keys(groupedMap)
+            .map((key) => {
+                const entry = groupedMap[key];
+                return {
+                    trigger: entry.trigger,
+                    count: entry.count,
+                    host_count: Object.keys(entry.hosts).length,
+                    hosts: Object.keys(entry.hosts).slice(0, 8),
+                    severities: entry.severities
+                };
+            })
+            .sort((a, b) => b.count - a.count);
+
+        const repeated = groups.filter((item) => item.count > 1).slice(0, 6);
+        const focus = groups.find((item) => item.trigger.toLowerCase() === String(focusTrigger || '').toLowerCase()) || null;
+
+        return {
+            total_open_alert_rows: rows.length,
+            grouped_alert_count: groups.length,
+            repeated_alert_groups: repeated,
+            top_alert_groups: groups.slice(0, 6),
+            focus_trigger_group: focus,
+            alert_group_summary: focus
+                ? (focus.count + ' similar alerts across ' + focus.host_count + ' host(s) for trigger "' + focus.trigger + '".')
+                : 'No repeated alert group detected for selected trigger.'
+        };
+    }
+
     function fromProblemsPage() {
         const row = getFirstProblemRow();
         if (!row) {
             return null;
         }
 
+        const rows = getProblemRows();
         const hostLink = row.querySelector('a[href*="hostid"]');
-        const triggerLink = row.querySelector('a[href*="triggerid"]');
         const logNode = row.querySelector('.opdata, [class*="opdata"]');
-        
-        // Fallback for trigger: look for strong tag or td with trigger-like content
-        let trigger = textOrEmpty(triggerLink);
-        if (!trigger) {
-            const strongTag = row.querySelector('td strong');
-            trigger = textOrEmpty(strongTag) || 'N/A';
-        }
-        // Ensure we don't capture time patterns as trigger
-        if (trigger && /^\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/.test(trigger.trim())) {
-            trigger = 'N/A';
-        }
+        const trigger = extractTriggerFromRow(row);
+        const groupData = buildAlertGroups(rows, trigger);
 
         const context = {
             host: textOrEmpty(hostLink) || 'N/A',
@@ -98,6 +167,12 @@ window.ZabGPTContext = (function() {
             severity: detectSeverityFromRow(row) || 'N/A',
             last_metrics: extractMetricsFromProblemRow(row),
             logs: textOrEmpty(logNode),
+            alert_group_summary: groupData.alert_group_summary,
+            focus_trigger_group: groupData.focus_trigger_group,
+            top_alert_groups: groupData.top_alert_groups,
+            repeated_alert_groups: groupData.repeated_alert_groups,
+            grouped_alert_count: groupData.grouped_alert_count,
+            total_open_alert_rows: groupData.total_open_alert_rows,
             source_page: 'problem.view',
             captured_at: new Date().toISOString()
         };

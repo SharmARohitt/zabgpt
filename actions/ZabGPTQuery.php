@@ -6,6 +6,8 @@ use CController;
 use Exception;
 
 class ZabGPTQuery extends CController {
+    private array $proxy_config = [];
+
     public function init(): void {
         $this->disableCsrfValidation();
     }
@@ -46,6 +48,7 @@ class ZabGPTQuery extends CController {
             if (empty($config['providers'])) {
                 throw new Exception('No providers configured. Configure at least one provider in ZabGPT settings.');
             }
+            $this->proxy_config = is_array($config['proxy'] ?? null) ? $config['proxy'] : [];
 
             if ($provider === '') {
                 $provider = $config['default_provider'] ?? 'gemini';
@@ -109,6 +112,7 @@ class ZabGPTQuery extends CController {
 
         $env_map = [
             'openai' => 'ZABGPT_OPENAI_API_KEY',
+            'anthropic' => 'ZABGPT_ANTHROPIC_API_KEY',
             'gemini' => 'ZABGPT_GEMINI_API_KEY',
             'custom' => 'ZABGPT_CUSTOM_API_KEY'
         ];
@@ -123,7 +127,46 @@ class ZabGPTQuery extends CController {
             $env_key = $_ENV[$env_name] ?? ($_SERVER[$env_name] ?? '');
         }
 
+        if ((string) $env_key === '') {
+            $dotenv = $this->loadDotEnv();
+            $env_key = $dotenv[$env_name] ?? '';
+        }
+
         return trim((string) $env_key);
+    }
+
+    private function loadDotEnv(): array {
+        $env_path = __DIR__ . '/../.env';
+        if (!file_exists($env_path) || !is_readable($env_path)) {
+            return [];
+        }
+
+        $lines = file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!is_array($lines)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($lines as $line) {
+            $line = trim((string) $line);
+            if ($line === '' || strpos($line, '#') === 0) {
+                continue;
+            }
+
+            $pos = strpos($line, '=');
+            if ($pos === false) {
+                continue;
+            }
+
+            $key = trim(substr($line, 0, $pos));
+            $val = trim(substr($line, $pos + 1));
+            $val = trim($val, "\"'");
+            if ($key !== '') {
+                $values[$key] = $val;
+            }
+        }
+
+        return $values;
     }
 
     private function buildSystemPrompt(): string {
@@ -197,28 +240,35 @@ You possess deep mastery of:
 4. Explain what metrics mean, why alerts fire, how to fix them
 5. Guide users to Zabbix best practices
 
-**Response Format (SIMPLE & CLEAN):**
+**Response Format (Detailed Incident Report):**
 
-**What's happening:**
-Plain-English explanation (1-2 sentences max). No jargon.
+**Incident summary:**
+Plain-English summary of what is wrong right now.
 
-**Why it matters:**
-The operational impact. Why should the user care? What breaks if ignored?
+**Alert grouping analysis:**
+Group same alerts together. Mention repeated trigger count, affected hosts, and pattern.
 
-**How to fix it:**
-Clear numbered steps. Include shell commands, Zabbix UI paths, or API calls when relevant.
+**Impact and risk:**
+Operational impact, business risk, and urgency.
 
-**How to prevent it:**
-Zabbix configuration tip or monitoring strategy to avoid recurrence.
+**Root cause hypotheses:**
+Top likely causes in priority order, with reason.
 
-**Related Zabbix info:**
-Relevant Zabbix concepts, item types, trigger expressions, or best practices.
+**Action plan (step-by-step):**
+Clear numbered steps with commands and Zabbix UI path when needed.
+
+**Verification checklist:**
+How to confirm fix worked in Zabbix (items, graphs, trigger state, latest data).
+
+**Prevention and tuning:**
+How to avoid repeat incidents (trigger tuning, dependencies, suppression, templates).
 
 **Critical Guidelines:**
 - ALWAYS be simple and direct. Avoid over-explaining.
 - Use short paragraphs. One idea per line when possible.
 - Make ALL answers actionable – include commands or exact steps.
 - If user shares Zabbix context (host, trigger, metrics), analyze it deeply.
+- If grouped/repeated alerts are provided, explicitly summarize the group and avoid repeating the same advice per host.
 - For any Zabbix feature: explain WHAT it is, WHY to use it, HOW to configure it.
 - Prioritize operational outcomes over theory.
 - Think like a senior administrator with 5+ years Zabbix experience.
@@ -248,6 +298,23 @@ PROMPT;
         $logs = trim((string) $logs);
 
         $metrics_text = $last_metrics ? json_encode($last_metrics, JSON_UNESCAPED_UNICODE) : 'N/A';
+        $alert_group_summary = trim((string) ($context['alert_group_summary'] ?? 'N/A'));
+        $focus_trigger_group = $context['focus_trigger_group'] ?? null;
+        $top_alert_groups = $context['top_alert_groups'] ?? [];
+
+        if (!is_array($focus_trigger_group)) {
+            $focus_trigger_group = [];
+        }
+        if (!is_array($top_alert_groups)) {
+            $top_alert_groups = [];
+        }
+
+        $focus_group_text = !empty($focus_trigger_group)
+            ? json_encode($focus_trigger_group, JSON_UNESCAPED_UNICODE)
+            : 'N/A';
+        $top_groups_text = !empty($top_alert_groups)
+            ? json_encode($top_alert_groups, JSON_UNESCAPED_UNICODE)
+            : 'N/A';
         $extra = $context;
         unset($extra['host'], $extra['trigger'], $extra['severity'], $extra['last_metrics'], $extra['logs']);
         $extra_context = !empty($extra)
@@ -261,14 +328,19 @@ PROMPT;
             . "- Severity: {$severity}\n"
             . "- Last Metrics: {$metrics_text}\n"
             . "- Logs: " . ($logs !== '' ? $logs : 'N/A') . "\n"
+                . "- Alert Group Summary: {$alert_group_summary}\n"
+                . "- Focus Trigger Group: {$focus_group_text}\n"
+                . "- Top Alert Groups: {$top_groups_text}\n"
             . "- Extra Context: {$extra_context}\n\n"
-            . "Analyze the issue and respond in the defined structured format.";
+                . "Analyze the issue and respond in the detailed incident report format with grouping analysis.";
     }
 
     private function callProvider(string $provider, array $config, string $system_prompt, string $user_prompt, array $history): string {
         switch ($provider) {
             case 'openai':
                 return $this->callOpenAI($config, $system_prompt, $user_prompt, $history);
+            case 'anthropic':
+                return $this->callAnthropic($config, $system_prompt, $user_prompt, $history);
             case 'gemini':
                 return $this->callGemini($config, $system_prompt, $user_prompt, $history);
             case 'custom':
@@ -276,6 +348,54 @@ PROMPT;
             default:
                 throw new Exception("Unknown provider: {$provider}");
         }
+    }
+
+    private function callAnthropic(array $config, string $system_prompt, string $user_prompt, array $history): string {
+        $api_key = (string) ($config['api_key'] ?? '');
+        $model = trim((string) ($config['model'] ?? 'claude-3-haiku-20240307'));
+        $endpoint = trim((string) ($config['endpoint'] ?? 'https://api.anthropic.com/v1/messages'));
+        $temperature = (float) ($config['temperature'] ?? 0.7);
+        $max_tokens = (int) ($config['max_tokens'] ?? 2048);
+
+        $messages = [];
+        foreach (array_slice($history, -8) as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $role = (string) ($entry['role'] ?? '');
+            $content = trim((string) ($entry['content'] ?? ''));
+            if (($role === 'user' || $role === 'assistant') && $content !== '') {
+                $messages[] = [
+                    'role' => $role,
+                    'content' => $content
+                ];
+            }
+        }
+
+        $messages[] = [
+            'role' => 'user',
+            'content' => $user_prompt
+        ];
+
+        $payload = [
+            'model' => $model,
+            'max_tokens' => $max_tokens,
+            'temperature' => $temperature,
+            'system' => $system_prompt,
+            'messages' => $messages
+        ];
+
+        $response = $this->postJson($endpoint, $payload, [
+            'Content-Type: application/json',
+            'x-api-key: ' . $api_key,
+            'anthropic-version: 2023-06-01'
+        ]);
+
+        if (isset($response['data']['content'][0]['text'])) {
+            return (string) $response['data']['content'][0]['text'];
+        }
+
+        throw new Exception('Invalid response from Anthropic API.');
     }
 
     private function callGemini(array $config, string $system_prompt, string $user_prompt, array $history): string {
@@ -492,12 +612,15 @@ PROMPT;
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-            CURLOPT_TIMEOUT => 40,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 5,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2
         ]);
+
+        $this->applyProxyOptions($ch);
 
         $resp = curl_exec($ch);
         $http_code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -516,5 +639,43 @@ PROMPT;
             'http_code' => $http_code,
             'data' => json_decode((string) $resp, true)
         ];
+    }
+
+    private function applyProxyOptions($ch): void {
+        if (empty($this->proxy_config['enabled'])) {
+            return;
+        }
+
+        $host = trim((string) ($this->proxy_config['host'] ?? ''));
+        if ($host === '') {
+            return;
+        }
+
+        $port = (int) ($this->proxy_config['port'] ?? 3128);
+        $type = strtolower(trim((string) ($this->proxy_config['type'] ?? 'http')));
+        $username = trim((string) ($this->proxy_config['username'] ?? ''));
+        $password = (string) ($this->proxy_config['password'] ?? '');
+        $verify_ssl = !empty($this->proxy_config['verify_ssl']);
+
+        curl_setopt($ch, CURLOPT_PROXY, $host . ':' . $port);
+
+        if ($type === 'socks4') {
+            curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4);
+        }
+        elseif ($type === 'socks5') {
+            curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5);
+        }
+        else {
+            curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+        }
+
+        if ($username !== '') {
+            curl_setopt($ch, CURLOPT_PROXYUSERPWD, $username . ':' . $password);
+        }
+
+        if ($verify_ssl) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        }
     }
 }

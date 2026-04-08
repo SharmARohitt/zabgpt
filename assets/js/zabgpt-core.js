@@ -124,14 +124,137 @@ window.ZabGPTCore = (function() {
     }
 
     function normalizeForDisplay(text) {
-        const lines = String(text || '').split(/\r?\n/);
-        const filtered = lines.filter((line) => line.trim() !== '');
-        return filtered.join('\n');
+        let normalized = String(text || '');
+        normalized = normalized.replace(/\r\n/g, '\n');
+        normalized = normalized.replace(/\u200B/g, '');
+        normalized = normalized.replace(/\n{3,}/g, '\n\n');
+        normalized = normalized.replace(/^\s+$/gm, '');
+        return normalized.trim();
+    }
+
+    function cleanMarkdownTitle(value) {
+        return String(value || '')
+            .replace(/^\s{0,3}#{1,6}\s*/, '')
+            .replace(/\*\*/g, '')
+            .replace(/__/g, '')
+            .replace(/\s*:\s*$/, '')
+            .trim();
+    }
+
+    function appendInlineNodes(target, text) {
+        const input = String(text || '');
+        const pattern = /\*\*([^*]+)\*\*/g;
+        let start = 0;
+        let match;
+
+        while ((match = pattern.exec(input)) !== null) {
+            if (match.index > start) {
+                target.appendChild(document.createTextNode(input.slice(start, match.index)));
+            }
+
+            const strong = document.createElement('strong');
+            strong.textContent = match[1];
+            target.appendChild(strong);
+
+            start = match.index + match[0].length;
+        }
+
+        if (start < input.length) {
+            target.appendChild(document.createTextNode(input.slice(start)));
+        }
+    }
+
+    function renderStructuredBody(container, rawText) {
+        const lines = String(rawText || '').split(/\n/);
+        let list = null;
+        let inCode = false;
+        let codeLines = [];
+
+        function flushList() {
+            if (list && list.children.length) {
+                container.appendChild(list);
+            }
+            list = null;
+        }
+
+        function flushCode() {
+            if (!codeLines.length) {
+                return;
+            }
+
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = codeLines.join('\n').trim();
+            pre.appendChild(code);
+            container.appendChild(pre);
+            codeLines = [];
+        }
+
+        lines.forEach((rawLine) => {
+            const line = rawLine || '';
+            const trimmed = line.trim();
+
+            if (/^```/.test(trimmed)) {
+                if (inCode) {
+                    flushCode();
+                }
+                else {
+                    flushList();
+                }
+                inCode = !inCode;
+                return;
+            }
+
+            if (inCode) {
+                codeLines.push(line);
+                return;
+            }
+
+            if (!trimmed) {
+                flushList();
+                return;
+            }
+
+            const bulletMatch = trimmed.match(/^([*+-])\s+(.+)$/);
+            if (bulletMatch) {
+                if (!list) {
+                    list = document.createElement('ul');
+                    list.className = 'zabgpt-clean-list';
+                }
+                const li = document.createElement('li');
+                appendInlineNodes(li, bulletMatch[2].replace(/\s+/g, ' ').trim());
+                list.appendChild(li);
+                return;
+            }
+
+            flushList();
+
+            const paragraph = document.createElement('p');
+            paragraph.className = 'zabgpt-clean-paragraph';
+            const headingLike = trimmed.match(/^#{1,6}\s+(.+)$/);
+            const paragraphText = (headingLike ? headingLike[1] : trimmed)
+                .replace(/\*([^*]+)\*/g, '$1')
+                .replace(/__([^_]+)__/g, '$1');
+            appendInlineNodes(paragraph, paragraphText);
+            container.appendChild(paragraph);
+        });
+
+        flushList();
+        if (inCode) {
+            flushCode();
+        }
     }
 
     function detectSections(text) {
         const content = normalizeForDisplay(text);
         const labels = [
+            'Incident summary',
+            'Alert grouping analysis',
+            'Impact and risk',
+            'Root cause hypotheses',
+            'Action plan (step-by-step)',
+            'Verification checklist',
+            'Prevention and tuning',
             'What\'s happening',
             'Why it matters',
             'How to fix it',
@@ -233,11 +356,7 @@ window.ZabGPTCore = (function() {
 
             const title = document.createElement('h4');
             title.className = 'zabgpt-section-title';
-            let cleanTitle = titleLine
-                .replace(/\*\*/g, '')
-                .replace(/^#+/, '')
-                .replace(/:\s*$/, '')
-                .trim();
+            let cleanTitle = cleanMarkdownTitle(titleLine);
             if (!cleanTitle) {
                 cleanTitle = titleLine.trim();
             }
@@ -245,17 +364,7 @@ window.ZabGPTCore = (function() {
 
             const body = document.createElement('div');
             body.className = 'zabgpt-section-body';
-            
-            // Parse markdown-like formatting
-            let htmlBody = escapeHtml(bodyText);
-            // Convert `code` to <code> tags
-            htmlBody = htmlBody.replace(/`([^`]+)`/g, '<code>$1</code>');
-            // Convert **bold** to <strong> tags
-            htmlBody = htmlBody.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-            // Preserve line breaks
-            htmlBody = htmlBody.replace(/\n/g, '<br>');
-            
-            body.innerHTML = htmlBody;
+            renderStructuredBody(body, bodyText);
 
             card.appendChild(title);
             card.appendChild(body);
